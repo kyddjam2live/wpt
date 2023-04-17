@@ -19,31 +19,26 @@ var ctx = canvas.getContext('2d');
 
 ctx.fillStyle = '#f00';
 ctx.fillRect(0, 0, 100, 50);
-var promise = new Promise(function(resolve, reject) {
-    var xhr = new XMLHttpRequest();
-    xhr.open("GET", '/images/ggrr-256x256.png');
-    xhr.responseType = 'blob';
-    xhr.send();
-    xhr.onload = function() {
-        resolve(xhr.response);
-    };
-});
-promise.then(function(response) {
-    createImageBitmap(response).then(bitmap => {
+fetch('/images/ggrr-256x256.png')
+  .then(response => response.blob())
+    .then(blob => {
+      createImageBitmap(blob)
+        .then(bitmap => {
         ctx.drawImage(bitmap, 0, 178, 50, -100, 0, 0, 50, 100);
         ctx.drawImage(bitmap, 0, 78, 50, 100, 50, 100, 50, -100);
-        _assertPixelApprox(canvas, 1,1, 0,255,0,255, "1,1", "0,255,0,255", 2);
-        _assertPixelApprox(canvas, 1,48, 0,255,0,255, "1,48", "0,255,0,255", 2);
-        _assertPixelApprox(canvas, 98,1, 0,255,0,255, "98,1", "0,255,0,255", 2);
-        _assertPixelApprox(canvas, 98,48, 0,255,0,255, "98,48", "0,255,0,255", 2);
-        _assertPixelApprox(canvas, 48,1, 0,255,0,255, "48,1", "0,255,0,255", 2);
-        _assertPixelApprox(canvas, 48,48, 0,255,0,255, "48,48", "0,255,0,255", 2);
-        _assertPixelApprox(canvas, 51,1, 0,255,0,255, "51,1", "0,255,0,255", 2);
-        _assertPixelApprox(canvas, 51,48, 0,255,0,255, "51,48", "0,255,0,255", 2);
-        _assertPixelApprox(canvas, 25,25, 0,255,0,255, "25,25", "0,255,0,255", 2);
-        _assertPixelApprox(canvas, 75,25, 0,255,0,255, "75,25", "0,255,0,255", 2);
-    }, t_fail);
-}).then(t_pass, t_fail);
+        _assertPixelApprox(canvas, 1,1, 0,255,0,255, 2);
+        _assertPixelApprox(canvas, 1,48, 0,255,0,255, 2);
+        _assertPixelApprox(canvas, 98,1, 0,255,0,255, 2);
+        _assertPixelApprox(canvas, 98,48, 0,255,0,255, 2);
+        _assertPixelApprox(canvas, 48,1, 0,255,0,255, 2);
+        _assertPixelApprox(canvas, 48,48, 0,255,0,255, 2);
+        _assertPixelApprox(canvas, 51,1, 0,255,0,255, 2);
+        _assertPixelApprox(canvas, 51,48, 0,255,0,255, 2);
+        _assertPixelApprox(canvas, 25,25, 0,255,0,255, 2);
+        _assertPixelApprox(canvas, 75,25, 0,255,0,255, 2);
+    });
+});
+t.done();
 
 });
 done();

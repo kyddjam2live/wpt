@@ -13,8 +13,6 @@ Header = Tuple[str, str]
 Status = Tuple[int, str]
 Response = Tuple[Status, List[Header], str]
 
-CLEAR_STASH = isomorphic_encode("clear_stash")
-
 
 def decode_headers(headers: dict) -> dict:
   """Decodes the headers from wptserve.
@@ -31,21 +29,19 @@ def decode_headers(headers: dict) -> dict:
                               ] for key, value in headers.items()
   }
 
+def get_request_origin(request: Request) -> str:
+  return "%s://%s" % (request.url_parts.scheme,
+                      request.url_parts.netloc)
+
 
 def handle_post_report(request: Request, headers: List[Header]) -> Response:
   """Handles POST request for reports.
 
   Retrieves the report from the request body and stores the report in the
-  stash. If clear_stash is specified in the query params, clears the stash.
+  stash.
   """
-  if request.GET.get(CLEAR_STASH):
-    clear_stash(request.server.stash)
-    return (200, "OK"), headers, json.dumps({
-        "code": 200,
-        "message": "Stash successfully cleared.",
-    })
   store_report(
-      request.server.stash, {
+      request.server.stash, get_request_origin(request), {
           "body": request.body.decode("utf-8"),
           "headers": decode_headers(request.headers)
       })
@@ -60,36 +56,37 @@ def handle_get_reports(request: Request, headers: List[Header]) -> Response:
 
   Retrieves and returns all reports from the stash.
   """
-  reports = take_reports(request.server.stash)
+  reports = take_reports(request.server.stash, get_request_origin(request))
+  headers.append(("Access-Control-Allow-Origin", "*"))
   return (200, "OK"), headers, json.dumps({
       "code": 200,
       "reports": reports,
   })
 
 
-def store_report(stash: Stash, report: str) -> None:
+def store_report(stash: Stash, origin: str, report: str) -> None:
   """Stores the report in the stash. Report here is a JSON."""
   with stash.lock:
-    reports = stash.take(REPORTS)
-    if not reports:
-      reports = []
+    reports_dict = stash.take(REPORTS)
+    if not reports_dict:
+      reports_dict = {}
+    reports = reports_dict.get(origin, [])
     reports.append(report)
-    stash.put(REPORTS, reports)
+    reports_dict[origin] = reports
+    stash.put(REPORTS, reports_dict)
   return None
 
 
-def take_reports(stash: Stash) -> List[str]:
+def take_reports(stash: Stash, origin: str) -> List[str]:
   """Takes all the reports from the stash and returns them."""
-  reports = stash.take(REPORTS)
-  if not reports:
-    reports = []
+  with stash.lock:
+    reports_dict = stash.take(REPORTS)
+    if not reports_dict:
+      reports_dict = {}
+
+    reports = reports_dict.pop(origin, [])
+    stash.put(REPORTS, reports_dict)
   return reports
-
-
-def clear_stash(stash: Stash) -> None:
-  "Clears the stash."
-  stash.take(REPORTS)
-  return None
 
 
 def handle_reports(request: Request) -> Response:

@@ -10,14 +10,14 @@ function log(str) {
   return entry;
 }
 
-// Common setup for window placement tests. Performs some basic assertions, and
+// Common setup for window management tests. Performs some basic assertions, and
 // then waits for a click on the `setUpButton` element (for manual tests).
 // Example usage:
 //  promise_test(async setUpTest => {
-//    await setUpWindowPlacement(setUpTest, setUpButton);
+//    await setUpWindowManagement(setUpTest, setUpButton);
 //    ...
 //  });
-async function setUpWindowPlacement(setUpTest, setUpButton) {
+async function setUpWindowManagement(setUpTest, setUpButton) {
   assert_true(
     'getScreenDetails' in self && 'isExtended' in screen,
     `API not supported; use Chromium (not content_shell) and enable
@@ -28,7 +28,7 @@ async function setUpWindowPlacement(setUpTest, setUpButton) {
     log(`WARNING: Run via 'wpt serve'; file URLs lack permission support`);
 
   try {  // Support manual testing where test_driver is not running.
-    await test_driver.set_permission({ name: 'window-placement' }, 'granted');
+    await test_driver.set_permission({ name: 'window-management' }, 'granted');
   } catch {
   }
   const setUpWatcher = new EventWatcher(setUpTest, setUpButton, ['click']);

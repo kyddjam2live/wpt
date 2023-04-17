@@ -49,15 +49,14 @@ async def test_sandbox(bidi_session, new_tab):
 
 @pytest.mark.asyncio
 async def test_sandbox_with_empty_name(bidi_session, new_tab):
-    # BiDi specification doesn't have restrictions of a sandbox name,
-    # that's why we want to make sure that it works with an empty name
+    # An empty string as a `sandbox` means the default realm should be used.
     await bidi_session.script.call_function(
         function_declaration="() => window.foo = 'bar'",
         target=ContextTarget(new_tab["context"], ""),
         await_promise=True,
     )
 
-    # Make sure that we can find the sandbox with the empty name
+    # Make sure that we can find the sandbox with the empty name.
     result = await bidi_session.script.call_function(
         function_declaration="() => window.foo",
         target=ContextTarget(new_tab["context"], ""),
@@ -65,13 +64,13 @@ async def test_sandbox_with_empty_name(bidi_session, new_tab):
     )
     assert result == {"type": "string", "value": "bar"}
 
-    # Make sure that changes didn't leak from sandbox
-    result = await bidi_session.script.evaluate(
-        expression="window.foo",
+    # Make sure that we can find the value in the default realm.
+    result = await bidi_session.script.call_function(
+        function_declaration="() => window.foo",
         target=ContextTarget(new_tab["context"]),
         await_promise=True,
     )
-    assert result == {"type": "undefined"}
+    assert result == {"type": "string", "value": "bar"}
 
 
 @pytest.mark.asyncio
@@ -129,6 +128,23 @@ async def test_sandbox_with_side_effects(bidi_session, new_tab):
 
 
 @pytest.mark.asyncio
+async def test_sandbox_returns_same_node(bidi_session, new_tab):
+    node = await bidi_session.script.call_function(
+        function_declaration="() => document.querySelector('body')",
+        target=ContextTarget(new_tab["context"]),
+        await_promise=True,
+    )
+    recursive_compare({"type": "node", "sharedId": any_string}, node)
+
+    node_sandbox = await bidi_session.script.call_function(
+        function_declaration="() => document.querySelector('body')",
+        target=ContextTarget(new_tab["context"], sandbox="sandbox_1"),
+        await_promise=True,
+    )
+    assert node_sandbox == node
+
+
+@pytest.mark.asyncio
 async def test_arguments(bidi_session, new_tab):
     argument = {
         "type": "set",
@@ -136,19 +152,37 @@ async def test_arguments(bidi_session, new_tab):
             {"type": "string", "value": "foobar"},
         ],
     }
+
     result = await bidi_session.script.call_function(
-        function_declaration=f"""(arg) => {{
+        function_declaration="""(arg) => {
             if(! (arg instanceof Set))
                 throw Error("Argument type should be Set, but was "+
                     Object.prototype.toString.call(arg));
             return arg;
-        }}""",
+        }""",
         arguments=[argument],
         await_promise=False,
         target=ContextTarget(new_tab["context"], "sandbox"),
     )
-
     recursive_compare(argument, result)
+
+
+@pytest.mark.asyncio
+async def test_arguments_uses_same_node_in_sandbox(bidi_session, new_tab):
+    node = await bidi_session.script.call_function(
+        function_declaration="() => document.querySelector('body')",
+        target=ContextTarget(new_tab["context"]),
+        await_promise=True,
+    )
+    recursive_compare({"type": "node", "sharedId": any_string}, node)
+
+    result = await bidi_session.script.call_function(
+        function_declaration="""(node) => node.localName""",
+        arguments=[node],
+        await_promise=False,
+        target=ContextTarget(new_tab["context"], "sandbox"),
+    )
+    assert result == {"type": "string", "value": "body"}
 
 
 @pytest.mark.asyncio

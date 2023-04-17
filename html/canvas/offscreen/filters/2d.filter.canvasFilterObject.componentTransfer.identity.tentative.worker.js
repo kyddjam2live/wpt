@@ -16,10 +16,10 @@ t.step(function() {
 var canvas = new OffscreenCanvas(100, 50);
 var ctx = canvas.getContext('2d');
 
-ctx.filter = new CanvasFilter({filter: "componentTransfer",
-    funcR: {type: "identity"},
-    funcG: {type: "identity"},
-    funcB: {type: "identity"},
+ctx.filter = new CanvasFilter({filter: 'componentTransfer',
+    funcR: {type: 'identity'},
+    funcG: {type: 'identity'},
+    funcB: {type: 'identity'},
 });
 
 const inputColors = [
@@ -33,7 +33,7 @@ const inputColors = [
 for (const color of inputColors) {
     ctx.fillStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, 1)`,
     ctx.fillRect(0, 0, 10, 10);
-    _assertPixel(canvas, 5, 5, color[0],color[1],color[2],255, "5,5", `${color[0]},${color[1]},${color[2]}`);
+    _assertPixel(canvas, 5, 5, color[0],color[1],color[2],255);
 }
 t.done();
 

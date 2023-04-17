@@ -23,6 +23,7 @@ ctx.fillStyle = '#f00';
 ctx.fillRect(20, 10, 60, 30);
 ctx.fillStyle = '#0f0';
 ctx.fillRect(40, 20, 20, 10);
+
 // Draw a skewed shape to fill that gap, to make sure it is aligned correctly
 ctx.setTransform(1,4, 2,3, 5,6);
 // Post-transform coordinates:
@@ -36,14 +37,14 @@ ctx.moveTo(pts[0][0], pts[0][1]);
 for (var i = 0; i < pts.length; ++i)
     ctx.lineTo(pts[i][0], pts[i][1]);
 ctx.fill();
-_assertPixel(canvas, 21,11, 0,255,0,255, "21,11", "0,255,0,255");
-_assertPixel(canvas, 79,11, 0,255,0,255, "79,11", "0,255,0,255");
-_assertPixel(canvas, 21,39, 0,255,0,255, "21,39", "0,255,0,255");
-_assertPixel(canvas, 79,39, 0,255,0,255, "79,39", "0,255,0,255");
-_assertPixel(canvas, 39,19, 0,255,0,255, "39,19", "0,255,0,255");
-_assertPixel(canvas, 61,19, 0,255,0,255, "61,19", "0,255,0,255");
-_assertPixel(canvas, 39,31, 0,255,0,255, "39,31", "0,255,0,255");
-_assertPixel(canvas, 61,31, 0,255,0,255, "61,31", "0,255,0,255");
+_assertPixel(canvas, 21,11, 0,255,0,255);
+_assertPixel(canvas, 79,11, 0,255,0,255);
+_assertPixel(canvas, 21,39, 0,255,0,255);
+_assertPixel(canvas, 79,39, 0,255,0,255);
+_assertPixel(canvas, 39,19, 0,255,0,255);
+_assertPixel(canvas, 61,19, 0,255,0,255);
+_assertPixel(canvas, 39,31, 0,255,0,255);
+_assertPixel(canvas, 61,31, 0,255,0,255);
 t.done();
 
 });

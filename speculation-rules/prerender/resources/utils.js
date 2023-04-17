@@ -79,10 +79,17 @@ async function readValueFromServer(key) {
 // Convenience wrapper around the above getter that will wait until a value is
 // available on the server.
 async function nextValueFromServer(key) {
+  let retry = 0;
   while (true) {
     // Fetches the test result from the server.
-    const { status, value } = await readValueFromServer(key);
-    if (!status) {
+    let success = true;
+    const { status, value } = await readValueFromServer(key).catch(e => {
+      if (retry++ >= 5) {
+        throw new Error('readValueFromServer failed');
+      }
+      success = false;
+    });
+    if (!success || !status) {
       // The test result has not been stored yet. Retry after a while.
       await new Promise(resolve => setTimeout(resolve, 100));
       continue;
@@ -183,7 +190,13 @@ function createFrame(url) {
     });
 }
 
-async function create_prerendered_page(t, opt = {}) {
+// `opt` provides additional query params for the prerendered URL.
+// `init_opt` provides additional query params for the page that triggers
+// the prerender. If `init_opt.prefetch` is set to true, prefetch is also
+// triggered before the prerendering.
+// `rule_extras` provides additional parameters for the speculation rule used
+// to trigger prerendering.
+async function create_prerendered_page(t, opt = {}, init_opt = {}, rule_extras = {}) {
   const baseUrl = '/speculation-rules/prerender/resources/exec.py';
   const init_uuid = token();
   const prerender_uuid = token();
@@ -191,7 +204,13 @@ async function create_prerendered_page(t, opt = {}) {
   const init_remote = new RemoteContext(init_uuid);
   const prerender_remote = new RemoteContext(prerender_uuid);
   const discard_remote = new RemoteContext(discard_uuid);
-  window.open(`${baseUrl}?uuid=${init_uuid}&init`, '_blank', 'noopener');
+
+  const init_params = new URLSearchParams(baseUrl.search);
+  init_params.set('uuid', init_uuid);
+  for (const p in init_opt)
+    init_params.set(p, init_opt[p]);
+  window.open(`${baseUrl}?${init_params.toString()}&init`, '_blank', 'noopener');
+
   const params = new URLSearchParams(baseUrl.search);
   params.set('uuid', prerender_uuid);
   params.set('discard_uuid', discard_uuid);
@@ -199,16 +218,33 @@ async function create_prerendered_page(t, opt = {}) {
     params.set(p, opt[p]);
   const url = `${baseUrl}?${params.toString()}`;
 
-  await init_remote.execute_script(url => {
+  if (init_opt.prefetch) {
+    await init_remote.execute_script((url, rule_extras) => {
+        const a = document.createElement('a');
+        a.href = url;
+        a.innerText = 'Activate (prefetch)';
+        document.body.appendChild(a);
+        const rules = document.createElement('script');
+        rules.type = "speculationrules";
+        rules.text = JSON.stringify(
+            {prefetch: [{source: 'list', urls: [url], ...rule_extras}]});
+        document.head.appendChild(rules);
+    }, [url, rule_extras]);
+
+    // Wait for the completion of the prefetch.
+    await new Promise(resolve => t.step_timeout(resolve, 3000));
+  }
+
+  await init_remote.execute_script((url, rule_extras) => {
       const a = document.createElement('a');
       a.href = url;
       a.innerText = 'Activate';
       document.body.appendChild(a);
       const rules = document.createElement('script');
       rules.type = "speculationrules";
-      rules.text = JSON.stringify({prerender: [{source: 'list', urls: [url]}]});
+      rules.text = JSON.stringify({prerender: [{source: 'list', urls: [url], ...rule_extras}]});
       document.head.appendChild(rules);
-  }, [url]);
+  }, [url, rule_extras]);
 
   await Promise.any([
     prerender_remote.execute_script(() => {
@@ -248,10 +284,16 @@ async function create_prerendered_page(t, opt = {}) {
       throw new Error('Should not be prerendering at this point')
   }
 
+  // Get the number of network requests for the prerendered page URL.
+  async function getNetworkRequestCount() {
+    return await (await fetch(url + '&get-fetch-count')).text();
+  }
+
   return {
     exec: (fn, args) => prerender_remote.execute_script(fn, args),
     activate,
-    tryToActivate
+    tryToActivate,
+    getNetworkRequestCount
   };
 }
 
@@ -295,7 +337,7 @@ function test_prerender_defer(fn, label) {
  *
  * See
  * /html/browsers/browsing-the-web/remote-context-helper/resources/remote-context-helper.js
- * for more details on the `RemoteContextWrapper` framework.
+ * for more details on the `RemoteContextWrapper` framework, and supported fields for extraConfig.
  *
  * The returned `RemoteContextWrapper` for the prerendered remote
  * context will have an extra `url` property, which is used by
@@ -304,9 +346,10 @@ function test_prerender_defer(fn, label) {
  * a prerendered page after creating it.)
  *
  * @param {RemoteContextWrapper} referrerRemoteContext
+ * @param {RemoteContextConfig|object} extraConfig
  * @returns {Promise<RemoteContextWrapper>}
  */
-async function addPrerenderRC(referrerRemoteContext) {
+async function addPrerenderRC(referrerRemoteContext, extraConfig) {
   let savedURL;
   const prerenderedRC = await referrerRemoteContext.helper.createContext({
     executorCreator(url) {
@@ -327,7 +370,7 @@ async function addPrerenderRC(referrerRemoteContext) {
         });
         document.head.append(script);
       }, [url]);
-    }
+    }, extraConfig
   });
 
   prerenderedRC.url = savedURL;
@@ -381,4 +424,19 @@ async function activatePrerenderRC(referrerRC, prerenderedRC, navigateFn) {
     "activated",
     "The prerendered page must be activated; instead a normal navigation happened."
   );
+}
+
+async function getActivationStart(prerenderedRC) {
+  return await prerenderedRC.executeScript(() => {
+    const entry = performance.getEntriesByType("navigation")[0];
+    return entry.activationStart;
+  });;
+}
+
+// Used by the opened window, to tell the main test runner to terminate a
+// failed test.
+function failTest(reason, uid) {
+  const bc = new PrerenderChannel('test-channel', uid);
+  bc.postMessage({result: 'FAILED', reason});
+  bc.close();
 }

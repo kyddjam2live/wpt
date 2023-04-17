@@ -27,10 +27,10 @@ function getColor(inputColor, slopes, intercepts) {
 
 const slopes = [0.5, 1.2, -0.2];
 const intercepts = [0.25, 0, 0.5];
-ctx.filter = new CanvasFilter({filter: "componentTransfer",
-    funcR: {type: "linear", slope: slopes[0], intercept: intercepts[0]},
-    funcG: {type: "linear", slope: slopes[1], intercept: intercepts[1]},
-    funcB: {type: "linear", slope: slopes[2], intercept: intercepts[2]},
+ctx.filter = new CanvasFilter({filter: 'componentTransfer',
+    funcR: {type: 'linear', slope: slopes[0], intercept: intercepts[0]},
+    funcG: {type: 'linear', slope: slopes[1], intercept: intercepts[1]},
+    funcB: {type: 'linear', slope: slopes[2], intercept: intercepts[2]},
 });
 
 const inputColors = [
@@ -45,7 +45,7 @@ for (const color of inputColors) {
     let outputColor = getColor(color, slopes, intercepts);
     ctx.fillStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
     ctx.fillRect(0, 0, 10, 10);
-    _assertPixelApprox(canvas, 5, 5, outputColor[0],outputColor[1],outputColor[2],255, "5,5", `${outputColor[0]},${outputColor[1]},${outputColor[2]}`, 2);
+    _assertPixelApprox(canvas, 5, 5, outputColor[0],outputColor[1],outputColor[2],255, 2);
 }
 t.done();
 
